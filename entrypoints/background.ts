@@ -56,8 +56,8 @@ export default defineBackground(() => {
     await ensureEngine();
   });
 
-  // Garante que o motor esteja acordado quando o popup ou content script enviar mensagens
-  browser.runtime.onMessage.addListener(async (message: any, _sender, sendResponse) => {
+  // NÃO marque esta função como async para evitar retornar Promises prematuras que resolvam em undefined!
+  browser.runtime.onMessage.addListener((message: any, _sender, sendResponse) => {
     if (message?.type === 'PING') {
       const response = {
         status: 'ok',
@@ -68,8 +68,13 @@ export default defineBackground(() => {
       return Promise.resolve(response);
     }
 
-    if (message?.type === 'START_DOWNLOAD' || message?.type === 'DELETE_MODEL') {
-      await ensureEngine();
+    if (
+      message?.type === 'START_DOWNLOAD' ||
+      message?.type === 'DELETE_MODEL' ||
+      message?.type === 'TRANSCRIBE_AUDIO_DATA'
+    ) {
+      ensureEngine();
+      // Não retorne nada aqui para que o ouvinte do motor offscreen/iframe responda à mensagem!
     }
   });
 

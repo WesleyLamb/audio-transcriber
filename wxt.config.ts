@@ -21,7 +21,7 @@ export default defineConfig({
     ],
     web_accessible_resources: [
       {
-        resources: ['wasm/*', 'offscreen.html'],
+        resources: ['wasm/*', 'offscreen.html', 'inject.js'],
         matches: ['https://web.whatsapp.com/*'],
       },
     ],

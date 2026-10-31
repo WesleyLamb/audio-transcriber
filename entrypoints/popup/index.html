@@ -279,10 +279,22 @@
           </select>
         </div>
       </div>
+
+      <!-- Card de Histórico & Cache -->
+      <div class="card">
+        <div class="card-title">Histórico de Transcrições</div>
+        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 12px; margin-bottom: 8px;">
+          <span>Áudios salvos localmente:</span>
+          <strong id="transcriptionsCount" style="color: var(--primary);">0</strong>
+        </div>
+        <button id="clearCacheBtn" class="btn btn-secondary">
+          <span>Limpar Histórico Local</span>
+        </button>
+      </div>
     </div>
 
     <div class="footer">
-      Os pesos do modelo são salvos no cache do seu navegador e funcionam 100% offline.
+      Os áudios e transcrições são processados exclusivamente na sua máquina e funcionam 100% offline.
     </div>
 
     <script type="module" src="./main.ts"></script>

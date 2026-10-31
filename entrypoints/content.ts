@@ -1,5 +1,9 @@
 import '../assets/content.css';
+import { browser } from 'wxt/browser';
 import { getSettings, isModelReady } from '../utils/storage';
+import { decodeAudioBlob } from '../utils/audio';
+import { getTranscription, saveTranscription } from '../utils/db';
+import type { TranscriptionRecord } from '../utils/db';
 
 const MIC_ICON_SVG = `
 <svg viewBox="0 0 24 24">
@@ -8,15 +12,181 @@ const MIC_ICON_SVG = `
 </svg>
 `;
 
+let lastCapturedAudioUrl: string | null = null;
+const capturedUrlsByTime: Array<{ url: string; time: number }> = [];
+
+// Injeta o script de hook no contexto nativo da página
+function injectPageHook() {
+  try {
+    const script = document.createElement('script');
+    script.src = browser.runtime.getURL('/inject.js' as any);
+    (document.head || document.documentElement).appendChild(script);
+    script.onload = () => script.remove();
+    console.log('[AudioTranscriber] Hook injetado com sucesso no WhatsApp Web.');
+  } catch (e) {
+    console.warn('[AudioTranscriber] Falha ao injetar hook:', e);
+  }
+}
+
+// Ouve mensagens emitidas pelo hook na página
+window.addEventListener('message', (event) => {
+  if (event.data?.type === 'WA_AUDIO_BLOB_CAPTURED' || event.data?.type === 'WA_AUDIO_PLAY_CAPTURED') {
+    const url = event.data.url || event.data.src;
+    if (url && typeof url === 'string' && url.startsWith('blob:')) {
+      lastCapturedAudioUrl = url;
+      capturedUrlsByTime.push({ url, time: Date.now() });
+      console.log('[AudioTranscriber] URL de áudio capturada pelo interceptor:', url);
+    }
+  }
+});
+
+// Obtém o blob do áudio correspondente a este balão
+async function getAudioBlobUrlForContainer(container: HTMLElement): Promise<string> {
+  const existingAudio = container.querySelector('audio') as HTMLAudioElement;
+  if (existingAudio && existingAudio.src && existingAudio.src.startsWith('blob:')) {
+    return existingAudio.src;
+  }
+
+  const playBtn = container.querySelector(
+    'button[aria-label*="mensagem de voz"], button[aria-label*="voice message"], button[aria-label*="recado de voz"], button[aria-label*="Reproduzir"]'
+  ) as HTMLButtonElement;
+
+  if (!playBtn) {
+    if (lastCapturedAudioUrl) {
+      return lastCapturedAudioUrl;
+    }
+    throw new Error('Botão de reproduzir do WhatsApp não encontrado neste balão.');
+  }
+
+  const startTime = Date.now();
+
+  const initialLabel = playBtn.getAttribute('aria-label') || '';
+  if (initialLabel.includes('Pausar') || initialLabel.includes('Pause')) {
+    if (lastCapturedAudioUrl) return lastCapturedAudioUrl;
+  }
+
+  playBtn.click();
+
+  return new Promise<string>((resolve, reject) => {
+    const interval = setInterval(() => {
+      const recent = capturedUrlsByTime.find((item) => item.time >= startTime - 150);
+      if (recent) {
+        clearInterval(interval);
+        const currentLabel = playBtn.getAttribute('aria-label') || '';
+        if (currentLabel.includes('Pausar') || currentLabel.includes('Pause')) {
+          playBtn.click();
+        }
+        resolve(recent.url);
+        return;
+      }
+
+      if (Date.now() - startTime > 2500) {
+        clearInterval(interval);
+        const currentLabel = playBtn.getAttribute('aria-label') || '';
+        if (currentLabel.includes('Pausar') || currentLabel.includes('Pause')) {
+          playBtn.click();
+        }
+
+        if (lastCapturedAudioUrl) {
+          resolve(lastCapturedAudioUrl);
+        } else {
+          reject(new Error('Não foi possível obter o áudio. Tente tocar o áudio e clicar novamente.'));
+        }
+      }
+    }, 80);
+  });
+}
+
+// Renderiza a caixa de texto transcrito dentro do balão de mensagem
+function renderTranscriptionBox(
+  container: HTMLElement,
+  messageId: string,
+  text: string,
+  modelName: string
+) {
+  // Remove caixa anterior se houver
+  const existing = container.querySelector('.wa-transcription-box');
+  if (existing) {
+    existing.remove();
+  }
+
+  const box = document.createElement('div');
+  box.className = 'wa-transcription-box';
+  box.setAttribute('data-transcription-id', messageId);
+
+  const header = document.createElement('div');
+  header.className = 'wa-transcription-header';
+
+  const tag = document.createElement('span');
+  tag.className = 'wa-transcription-tag';
+  tag.innerHTML = `<span>🎙️</span> <span>IA Local (${modelName.replace('onnx-community/', '')})</span>`;
+
+  const actions = document.createElement('div');
+  actions.className = 'wa-transcription-actions';
+
+  const copyBtn = document.createElement('button');
+  copyBtn.className = 'wa-action-btn';
+  copyBtn.type = 'button';
+  copyBtn.innerHTML = '📋 Copiar';
+  copyBtn.title = 'Copiar texto para a área de transferência';
+  copyBtn.onclick = async (e) => {
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(text);
+      copyBtn.innerHTML = '✓ Copiado!';
+      setTimeout(() => {
+        copyBtn.innerHTML = '📋 Copiar';
+      }, 2000);
+    } catch {
+      copyBtn.innerHTML = 'Falha ao copiar';
+    }
+  };
+
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'wa-action-btn';
+  closeBtn.type = 'button';
+  closeBtn.innerHTML = '✕';
+  closeBtn.title = 'Ocultar transcrição';
+  closeBtn.onclick = (e) => {
+    e.stopPropagation();
+    box.remove();
+  };
+
+  actions.appendChild(copyBtn);
+  actions.appendChild(closeBtn);
+  header.appendChild(tag);
+  header.appendChild(actions);
+
+  const textElement = document.createElement('div');
+  textElement.className = 'wa-transcription-text';
+  textElement.textContent = text || '(Áudio inaudível ou sem fala detectada)';
+
+  box.appendChild(header);
+  box.appendChild(textElement);
+
+  const parent = container.parentElement;
+  const addonContainer = parent?.querySelector('[data-testid="addon-bubble-container"]') as HTMLElement;
+
+  if (addonContainer) {
+    addonContainer.appendChild(box);
+  } else {
+    container.appendChild(box);
+  }
+}
+
 // Injeta o botão de transcrição dentro do balão de áudio
 function injectButtonIntoMessage(container: HTMLElement) {
-  // Verifica se o botão já foi injetado nesta mensagem
   if (
     container.querySelector('.wa-transcriber-wrapper') ||
     container.parentElement?.querySelector('.wa-transcriber-wrapper')
   ) {
     return;
   }
+
+  const messageId =
+    container.closest('[data-id]')?.getAttribute('data-id') ||
+    container.getAttribute('data-id') ||
+    `audio_${Math.random().toString(36).substring(2, 9)}`;
 
   const wrapper = document.createElement('div');
   wrapper.className = 'wa-transcriber-wrapper';
@@ -28,9 +198,6 @@ function injectButtonIntoMessage(container: HTMLElement) {
 
   wrapper.appendChild(button);
 
-  // Ponto de injeção ideal:
-  // Se houver addon-bubble-container (contêiner nativo para extras do balão), injeta nele;
-  // senão, anexa ao final do contêiner da mensagem.
   const parent = container.parentElement;
   const addonContainer = parent?.querySelector('[data-testid="addon-bubble-container"]') as HTMLElement;
 
@@ -40,7 +207,17 @@ function injectButtonIntoMessage(container: HTMLElement) {
     container.appendChild(wrapper);
   }
 
-  // Ação de clique para o teste da Etapa 3
+  // Verifica se esta mensagem já foi transcrita anteriormente no IndexedDB
+  getTranscription(messageId)
+    .then((cached) => {
+      if (cached) {
+        renderTranscriptionBox(container, messageId, cached.text, cached.modelUsed);
+        button.innerHTML = '✓ Transcrito';
+      }
+    })
+    .catch(() => {});
+
+  // Ação de clique para transcrição completa
   button.onclick = async (e) => {
     e.stopPropagation();
     e.preventDefault();
@@ -55,33 +232,62 @@ function injectButtonIntoMessage(container: HTMLElement) {
       return;
     }
 
-    const messageId =
-      container.closest('[data-id]')?.getAttribute('data-id') ||
-      container.getAttribute('data-id') ||
-      'id_desconhecido';
+    button.disabled = true;
+    button.innerHTML = '<span class="wa-spinner"></span><span>Decodificando áudio...</span>';
 
-    console.log('[AudioTranscriber] Balão de áudio detectado com sucesso!', {
-      messageId,
-      modelReady: ready,
-      selectedModel: settings.selectedModel,
-      container,
-    });
+    try {
+      // 1. Extrai o áudio
+      const blobUrl = await getAudioBlobUrlForContainer(container);
 
-    // Feedback visual para validação da Etapa 3
-    button.classList.add('wa-btn-ready');
-    button.innerHTML = '<span>✓ Áudio conectado (Etapa 3 OK)</span>';
-    setTimeout(() => {
-      button.innerHTML = `${MIC_ICON_SVG}<span>Transcrever</span>`;
-      button.classList.remove('wa-btn-ready');
-    }, 3000);
+      // 2. Converte para PCM 16kHz mono
+      const { audioData, duration } = await decodeAudioBlob(blobUrl);
+
+      // 3. Envia para o motor de IA Whisper local
+      button.innerHTML = '<span class="wa-spinner"></span><span>Transcrevendo com IA local...</span>';
+      console.log(`[AudioTranscriber] Enviando ${audioData.length} amostras para inferência Whisper...`);
+
+      const response = await browser.runtime.sendMessage({
+        type: 'TRANSCRIBE_AUDIO_DATA',
+        audioData: Array.from(audioData),
+        language: settings.language,
+      });
+
+      if (response?.success && typeof response.text === 'string') {
+        const transcriptionText = response.text.trim();
+        console.log('[AudioTranscriber] Transcrição recebida com sucesso:', transcriptionText);
+
+        // 4. Renderiza inline no balão
+        renderTranscriptionBox(container, messageId, transcriptionText, settings.selectedModel);
+
+        // 5. Salva no IndexedDB
+        const record: TranscriptionRecord = {
+          id: messageId,
+          text: transcriptionText,
+          modelUsed: settings.selectedModel,
+          language: settings.language,
+          durationSeconds: duration,
+          createdAt: Date.now(),
+        };
+        await saveTranscription(record);
+
+        button.disabled = false;
+        button.innerHTML = '✓ Transcrito';
+      } else {
+        throw new Error(response?.error || 'Não foi possível transcrever o áudio.');
+      }
+    } catch (err: any) {
+      console.error('[AudioTranscriber] Erro durante a transcrição:', err);
+      button.disabled = false;
+      button.innerHTML = '<span>⚠️ Tentar novamente</span>';
+      alert(`Falha na transcrição: ${err.message || 'Erro inesperado'}`);
+    }
   };
 }
 
-// Varre a tela em busca de mensagens de áudio usando os seletores reais do WhatsApp Web
+// Varre a tela em busca de mensagens de áudio
 function scanForAudioMessages() {
   const audioContainers = new Set<HTMLElement>();
 
-  // 1. Procura por botões de reproduzir mensagem de voz ou controle deslizante
   const targetSelectors = [
     'button[aria-label*="mensagem de voz"]',
     'button[aria-label*="voice message"]',
@@ -107,25 +313,6 @@ function scanForAudioMessages() {
     });
   });
 
-//   // 2. Procura por ícones SVG característicos de mensagens de voz
-//   document.querySelectorAll('svg title').forEach((titleEl) => {
-//     const text = titleEl.textContent || '';
-//     if (
-//       text.includes('ic-keyboard-voice') ||
-//       text.includes('ic-play-arrow') ||
-//       text.includes('ic-pause')
-//     ) {
-//       const container = (titleEl.closest('[data-testid="msg-container"]') ||
-//         titleEl.closest('[data-id]') ||
-//         titleEl.closest('[role="row"]')) as HTMLElement;
-
-//       if (container && (container.querySelector('[role="slider"]') || text.includes('voice'))) {
-//         audioContainers.add(container);
-//       }
-//     }
-//   });
-
-  // Injeta o botão em cada contêiner de mensagem de áudio identificado
   audioContainers.forEach((container) => {
     injectButtonIntoMessage(container);
   });
@@ -135,12 +322,11 @@ export default defineContentScript({
   matches: ['https://web.whatsapp.com/*'],
   cssInjectionMode: 'manifest',
   main() {
-    console.log('%c[AudioTranscriber] Content script ativo e monitorando mensagens de áudio no WhatsApp Web!', 'color: #00a884; font-weight: bold;');
+    console.log('%c[AudioTranscriber] Content script ativo no WhatsApp Web!', 'color: #00a884; font-weight: bold;');
 
-    // Varredura imediata
+    injectPageHook();
     scanForAudioMessages();
 
-    // Observa o carregamento dinâmico de conversas e mensagens com debounce
     let timer: any = null;
     const observer = new MutationObserver(() => {
       if (timer) clearTimeout(timer);

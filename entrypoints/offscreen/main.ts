@@ -1,7 +1,7 @@
 import { pipeline, env } from '@huggingface/transformers';
 import { browser } from 'wxt/browser';
 import type { WhisperModelId, DownloadProgressPayload } from '../../utils/types';
-import { setModelDownloaded } from '../../utils/storage';
+import { setModelDownloaded, getSettings, isModelReady } from '../../utils/storage';
 
 // Configurações do Transformers.js para extensão
 env.allowLocalModels = false;
@@ -21,8 +21,41 @@ let isDownloading = false;
 
 const fileProgressMap = new Map<string, { loaded: number; total: number; progress: number }>();
 
+async function getOrLoadPipeline(modelId: WhisperModelId) {
+  if (activeTranscriber && currentModelId === modelId) {
+    return activeTranscriber;
+  }
+
+  console.log(`[AudioTranscriber Engine] Inicializando pipeline: ${modelId}...`);
+
+  let p = null;
+  if (navigator.gpu) {
+    try {
+      p = await pipeline('automatic-speech-recognition', modelId, {
+        dtype: 'q8',
+        device: 'webgpu',
+      });
+      console.log('[AudioTranscriber Engine] Pipeline carregado via WebGPU.');
+    } catch (e) {
+      console.warn('[AudioTranscriber Engine] WebGPU indisponível, usando WASM CPU:', e);
+    }
+  }
+
+  if (!p) {
+    p = await pipeline('automatic-speech-recognition', modelId, {
+      dtype: 'q8',
+      device: 'wasm',
+    });
+    console.log('[AudioTranscriber Engine] Pipeline carregado via WASM CPU.');
+  }
+
+  activeTranscriber = p;
+  currentModelId = modelId;
+  return activeTranscriber;
+}
+
 async function handleDownloadModel(modelId: WhisperModelId) {
-  if (isDownloading) return;
+  if (isDownloading) return { success: false, error: 'Já está em download' };
   isDownloading = true;
   fileProgressMap.clear();
 
@@ -60,7 +93,6 @@ async function handleDownloadModel(modelId: WhisperModelId) {
     };
 
     let p = null;
-    // Tenta carregar com WebGPU se disponível
     if (navigator.gpu) {
       try {
         p = await pipeline('automatic-speech-recognition', modelId, {
@@ -68,20 +100,17 @@ async function handleDownloadModel(modelId: WhisperModelId) {
           device: 'webgpu',
           progress_callback: progressCallback,
         });
-        console.log('[AudioTranscriber Engine] Pipeline carregado via WebGPU.');
-      } catch (e) {
-        console.warn('[AudioTranscriber Engine] WebGPU indisponível, recorrendo ao WASM CPU:', e);
+      } catch {
+        // Fallback para wasm
       }
     }
 
-    // Fallback universal: WASM CPU
     if (!p) {
       p = await pipeline('automatic-speech-recognition', modelId, {
         dtype: 'q8',
         device: 'wasm',
         progress_callback: progressCallback,
       });
-      console.log('[AudioTranscriber Engine] Pipeline carregado via WASM CPU.');
     }
 
     activeTranscriber = p;
@@ -143,27 +172,79 @@ async function handleDeleteModel(modelId: WhisperModelId) {
   }
 }
 
-// Ouvinte de mensagens da extensão
+async function handleTranscribe(audioData: number[] | Float32Array, language?: string) {
+  const settings = await getSettings();
+  const modelId = settings.selectedModel;
+  const lang = language || settings.language || 'pt';
+
+  const ready = await isModelReady(modelId);
+  if (!ready) {
+    throw new Error(`O modelo ${modelId} não está baixado. Abra as opções da extensão para baixar.`);
+  }
+
+  const transcriber = await getOrLoadPipeline(modelId);
+
+  const float32Audio = audioData instanceof Float32Array
+    ? audioData
+    : new Float32Array(audioData);
+
+  const options: Record<string, any> = {
+    task: 'transcribe',
+    chunk_length_s: 30,
+    return_timestamps: false,
+  };
+
+  if (lang !== 'auto') {
+    options.language = lang;
+  }
+
+  console.log(`[AudioTranscriber Engine] Executando inferência Whisper (idioma: ${lang}, amostras: ${float32Audio.length})...`);
+  const result = await transcriber(float32Audio, options);
+
+  const text = (Array.isArray(result) ? result[0]?.text : result?.text) || '';
+  console.log('[AudioTranscriber Engine] Transcrição concluída:', text);
+  return text.trim();
+}
+
+// Ouvinte de mensagens da extensão: retorna Promises reais para aguardar o término da operação!
 browser.runtime.onMessage.addListener((message: any, _sender, sendResponse) => {
   if (message.type === 'START_DOWNLOAD') {
-    handleDownloadModel(message.modelId)
+    return handleDownloadModel(message.modelId)
       .then((res) => {
         sendResponse(res);
+        return res;
       })
       .catch((err) => {
-        sendResponse({ success: false, error: err.message });
+        const res = { success: false, error: err.message };
+        sendResponse(res);
+        return res;
       });
-    return Promise.resolve({ received: true });
   }
 
   if (message.type === 'DELETE_MODEL') {
-    handleDeleteModel(message.modelId)
+    return handleDeleteModel(message.modelId)
       .then((res) => {
         sendResponse(res);
+        return res;
       })
       .catch((err) => {
-        sendResponse({ success: false, error: err.message });
+        const res = { success: false, error: err.message };
+        sendResponse(res);
+        return res;
       });
-    return Promise.resolve({ received: true });
+  }
+
+  if (message.type === 'TRANSCRIBE_AUDIO_DATA') {
+    return handleTranscribe(message.audioData, message.language)
+      .then((text) => {
+        const res = { success: true, text };
+        sendResponse(res);
+        return res;
+      })
+      .catch((err) => {
+        const res = { success: false, error: err.message || 'Falha na inferência' };
+        sendResponse(res);
+        return res;
+      });
   }
 });

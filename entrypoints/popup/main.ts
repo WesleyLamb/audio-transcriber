@@ -2,6 +2,7 @@ import { browser } from 'wxt/browser';
 import type { WhisperModelId, DownloadProgressPayload } from '../../utils/types';
 import { AVAILABLE_MODELS } from '../../utils/types';
 import { getSettings, saveSettings, isModelReady } from '../../utils/storage';
+import { getStoredTranscriptionsCount, clearAllTranscriptions } from '../../utils/db';
 
 const modelSelect = document.getElementById('modelSelect') as HTMLSelectElement;
 const languageSelect = document.getElementById('languageSelect') as HTMLSelectElement;
@@ -13,6 +14,8 @@ const progressContainer = document.getElementById('progressContainer') as HTMLDi
 const progressBarFill = document.getElementById('progressBarFill') as HTMLDivElement;
 const progressFileText = document.getElementById('progressFileText') as HTMLSpanElement;
 const progressPercentText = document.getElementById('progressPercentText') as HTMLSpanElement;
+const transcriptionsCount = document.getElementById('transcriptionsCount') as HTMLElement;
+const clearCacheBtn = document.getElementById('clearCacheBtn') as HTMLButtonElement;
 
 async function updateUI() {
   const selectedModel = modelSelect.value as WhisperModelId;
@@ -36,6 +39,14 @@ async function updateUI() {
     downloadBtn.disabled = false;
     downloadBtn.innerHTML = '<span>📥 Baixar Modelo Agora</span>';
     deleteBtn.style.display = 'none';
+  }
+
+  // Atualiza contagem de transcrições salvas
+  try {
+    const count = await getStoredTranscriptionsCount();
+    transcriptionsCount.textContent = count.toString();
+  } catch {
+    transcriptionsCount.textContent = '0';
   }
 }
 
@@ -106,6 +117,15 @@ async function init() {
         deleteBtn.disabled = false;
         await updateUI();
       }, 600);
+    }
+  });
+
+  // Limpar histórico de transcrições
+  clearCacheBtn.addEventListener('click', async () => {
+    const confirmClear = confirm('Deseja limpar todo o histórico de transcrições salvas localmente?');
+    if (confirmClear) {
+      await clearAllTranscriptions();
+      await updateUI();
     }
   });
 

@@ -1,4 +1,4 @@
-/* Estilos do Botão Injetado no WhatsApp Web */
+/* Estilos do Botão e Caixa de Transcrição Injetados no WhatsApp Web */
 
 .wa-transcriber-wrapper {
   display: inline-flex;
@@ -32,6 +32,11 @@
   border-color: rgba(0, 168, 132, 0.4);
 }
 
+.wa-transcriber-btn:disabled {
+  opacity: 0.75;
+  cursor: wait;
+}
+
 .wa-transcriber-btn:active {
   transform: scale(0.98);
 }
@@ -43,7 +48,7 @@
   flex-shrink: 0;
 }
 
-/* Suporte automático ao Modo Escuro do WhatsApp Web */
+/* Suporte ao Modo Escuro do WhatsApp Web */
 [data-theme='dark'] .wa-transcriber-btn,
 .dark .wa-transcriber-btn {
   background-color: rgba(0, 168, 132, 0.2);
@@ -56,14 +61,114 @@
   background-color: rgba(0, 168, 132, 0.3);
 }
 
-/* Estado de Sucesso / Feedback */
-.wa-transcriber-btn.wa-btn-ready {
-  background-color: rgba(37, 211, 102, 0.2) !important;
-  color: #008069 !important;
-  border-color: rgba(37, 211, 102, 0.5) !important;
+/* Caixa Inline da Transcrição */
+.wa-transcription-box {
+  margin-top: 8px;
+  margin-bottom: 4px;
+  padding: 8px 12px;
+  background-color: rgba(0, 0, 0, 0.04);
+  border-left: 3px solid #008069;
+  border-radius: 0 6px 6px 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: #111b21;
+  animation: waFadeIn 0.2s ease-out;
+  user-select: text;
 }
 
-[data-theme='dark'] .wa-transcriber-btn.wa-btn-ready,
-.dark .wa-transcriber-btn.wa-btn-ready {
-  color: #25d366 !important;
+[data-theme='dark'] .wa-transcription-box,
+.dark .wa-transcription-box {
+  background-color: rgba(255, 255, 255, 0.05);
+  border-left-color: #25d366;
+  color: #e9edef;
+}
+
+.wa-transcription-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  font-size: 11px;
+  color: #667781;
+  user-select: none;
+}
+
+[data-theme='dark'] .wa-transcription-header,
+.dark .wa-transcription-header {
+  color: #8696a0;
+}
+
+.wa-transcription-tag {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.wa-transcription-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.wa-action-btn {
+  background: none;
+  border: none;
+  color: #008069;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+[data-theme='dark'] .wa-action-btn,
+.dark .wa-action-btn {
+  color: #25d366;
+}
+
+.wa-action-btn:hover {
+  background-color: rgba(0, 168, 132, 0.15);
+}
+
+.wa-transcription-text {
+  word-wrap: break-word;
+  white-space: pre-wrap;
+  color: inherit;
+}
+
+.wa-spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: waSpin 0.75s linear infinite;
+  vertical-align: middle;
+  margin-right: 4px;
+}
+
+@keyframes waSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes waFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
