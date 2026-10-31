@@ -1,0 +1,69 @@
+/* Estilos do Botão Injetado no WhatsApp Web */
+
+.wa-transcriber-wrapper {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 4px;
+  margin-bottom: 4px;
+  margin-left: 2px;
+  z-index: 10;
+}
+
+.wa-transcriber-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background-color: rgba(0, 168, 132, 0.12);
+  color: #008069;
+  border: 1px solid rgba(0, 168, 132, 0.25);
+  border-radius: 14px;
+  padding: 4px 10px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+  outline: none;
+}
+
+.wa-transcriber-btn:hover {
+  background-color: rgba(0, 168, 132, 0.22);
+  border-color: rgba(0, 168, 132, 0.4);
+}
+
+.wa-transcriber-btn:active {
+  transform: scale(0.98);
+}
+
+.wa-transcriber-btn svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+  flex-shrink: 0;
+}
+
+/* Suporte automático ao Modo Escuro do WhatsApp Web */
+[data-theme='dark'] .wa-transcriber-btn,
+.dark .wa-transcriber-btn {
+  background-color: rgba(0, 168, 132, 0.2);
+  color: #25d366;
+  border-color: rgba(0, 168, 132, 0.35);
+}
+
+[data-theme='dark'] .wa-transcriber-btn:hover,
+.dark .wa-transcriber-btn:hover {
+  background-color: rgba(0, 168, 132, 0.3);
+}
+
+/* Estado de Sucesso / Feedback */
+.wa-transcriber-btn.wa-btn-ready {
+  background-color: rgba(37, 211, 102, 0.2) !important;
+  color: #008069 !important;
+  border-color: rgba(37, 211, 102, 0.5) !important;
+}
+
+[data-theme='dark'] .wa-transcriber-btn.wa-btn-ready,
+.dark .wa-transcriber-btn.wa-btn-ready {
+  color: #25d366 !important;
+}

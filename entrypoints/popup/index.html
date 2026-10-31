@@ -3,113 +3,288 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Transcritor WhatsApp</title>
+    <title>Transcritor WhatsApp - Configurações</title>
     <style>
+      :root {
+        --primary: #008069;
+        --primary-hover: #017560;
+        --bg: #f0f2f5;
+        --card-bg: #ffffff;
+        --text-primary: #111b21;
+        --text-secondary: #667781;
+        --border: #e9edef;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
       body {
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-        width: 320px;
+        width: 350px;
         margin: 0;
-        padding: 16px;
-        background-color: #f0f2f5;
-        color: #111b21;
+        padding: 0;
+        background-color: var(--bg);
+        color: var(--text-primary);
+        user-select: none;
       }
+
       .header {
+        background-color: var(--primary);
+        color: #ffffff;
+        padding: 14px 16px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .header-title {
         display: flex;
         align-items: center;
         gap: 8px;
-        margin-bottom: 12px;
-      }
-      .header h1 {
-        font-size: 16px;
-        margin: 0;
-        color: #008069;
-      }
-      .badge {
-        font-size: 11px;
-        background: #dcf8c6;
-        color: #075e54;
-        padding: 2px 8px;
-        border-radius: 10px;
+        font-size: 15px;
         font-weight: 600;
       }
+
+      .badge {
+        font-size: 11px;
+        background: rgba(255, 255, 255, 0.2);
+        color: #ffffff;
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-weight: 500;
+      }
+
+      .content {
+        padding: 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
       .card {
-        background: #ffffff;
+        background: var(--card-bg);
         border-radius: 8px;
         padding: 12px;
-        margin-bottom: 12px;
         box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
       }
+
       .card-title {
         font-size: 12px;
         font-weight: 600;
         text-transform: uppercase;
-        color: #667781;
+        color: var(--text-secondary);
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
         margin-bottom: 8px;
       }
-      p {
+
+      label {
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--text-primary);
+      }
+
+      select {
+        width: 100%;
+        padding: 7px 10px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
         font-size: 13px;
-        color: #3b4a54;
-        margin: 0 0 8px 0;
+        background: #ffffff;
+        color: var(--text-primary);
+        outline: none;
+        cursor: pointer;
+      }
+
+      select:focus {
+        border-color: var(--primary);
+      }
+
+      .model-desc {
+        font-size: 11.5px;
+        color: var(--text-secondary);
+        margin-bottom: 10px;
         line-height: 1.4;
       }
-      button {
+
+      .status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 3px 8px;
+        border-radius: 6px;
+        font-size: 11px;
+        font-weight: 600;
+      }
+
+      .status-ready {
+        background-color: #dcf8c6;
+        color: #075e54;
+      }
+
+      .status-missing {
+        background-color: #fee2e2;
+        color: #991b1b;
+      }
+
+      .status-downloading {
+        background-color: #e0f2fe;
+        color: #0369a1;
+      }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
         width: 100%;
-        background-color: #008069;
-        color: white;
+        padding: 8px 12px;
         border: none;
         border-radius: 6px;
-        padding: 8px 12px;
         font-size: 13px;
         font-weight: 600;
         cursor: pointer;
         transition: background-color 0.2s;
       }
-      button:hover {
-        background-color: #017560;
+
+      .btn-primary {
+        background-color: var(--primary);
+        color: #ffffff;
       }
-      .status-box {
+
+      .btn-primary:hover {
+        background-color: var(--primary-hover);
+      }
+
+      .btn-secondary {
+        background-color: transparent;
+        color: var(--text-secondary);
+        border: 1px solid var(--border);
+        margin-top: 6px;
+      }
+
+      .btn-secondary:hover {
+        background-color: #f8fafc;
+        color: var(--text-primary);
+      }
+
+      .btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+
+      .progress-container {
         margin-top: 10px;
-        padding: 8px;
-        border-radius: 6px;
-        background: #f7f9fa;
-        font-size: 12px;
-        color: #3b4a54;
-        border: 1px dashed #d1d7db;
-        min-height: 20px;
-        word-break: break-word;
+        display: none;
       }
-      .steps-list {
-        margin: 0;
-        padding-left: 18px;
-        font-size: 12px;
-        color: #667781;
-        line-height: 1.5;
+
+      .progress-bar-bg {
+        width: 100%;
+        height: 8px;
+        background: #e9edef;
+        border-radius: 4px;
+        overflow: hidden;
+      }
+
+      .progress-bar-fill {
+        height: 100%;
+        width: 0%;
+        background: var(--primary);
+        transition: width 0.2s ease;
+      }
+
+      .progress-meta {
+        display: flex;
+        justify-content: space-between;
+        font-size: 11px;
+        color: var(--text-secondary);
+        margin-top: 4px;
+      }
+
+      .footer {
+        text-align: center;
+        font-size: 11px;
+        color: var(--text-secondary);
+        padding: 4px 14px 14px;
+        line-height: 1.4;
       }
     </style>
   </head>
   <body>
     <div class="header">
-      <h1>🎙️ Transcritor WhatsApp</h1>
-      <span class="badge">Etapa 1</span>
+      <div class="header-title">
+        <span>🎙️ Transcritor WhatsApp</span>
+      </div>
+      <span class="badge">🔒 IA Local</span>
     </div>
 
-    <div class="card">
-      <div class="card-title">Validação da Extensão</div>
-      <p>A extensão base foi carregada com sucesso no seu navegador.</p>
-      <button id="testBtn">⚡ Testar Comunicação Interna</button>
-      <div id="statusBox" class="status-box">Aguardando teste...</div>
+    <div class="content">
+      <!-- Card do Modelo de IA -->
+      <div class="card">
+        <div class="card-title">
+          <span>Modelo de Transcrição</span>
+          <span id="modelStatusPill" class="status-pill status-missing">Não baixado</span>
+        </div>
+
+        <div class="form-group">
+          <label for="modelSelect">Escolha o modelo:</label>
+          <select id="modelSelect">
+            <option value="onnx-community/whisper-tiny" selected>Whisper Tiny (~75MB - Recomendado)</option>
+            <option value="onnx-community/whisper-base">Whisper Base (~140MB - Maior precisão)</option>
+          </select>
+        </div>
+
+        <div id="modelDescription" class="model-desc">
+          Mais rápido e leve. Ideal para computadores modestos.
+        </div>
+
+        <button id="downloadBtn" class="btn btn-primary">
+          <span>📥 Baixar Modelo Agora</span>
+        </button>
+
+        <button id="deleteBtn" class="btn btn-secondary" style="display: none;">
+          <span>🗑️ Excluir Modelo do Cache</span>
+        </button>
+
+        <div id="progressContainer" class="progress-container">
+          <div class="progress-bar-bg">
+            <div id="progressBarFill" class="progress-bar-fill"></div>
+          </div>
+          <div class="progress-meta">
+            <span id="progressFileText">Iniciando download...</span>
+            <span id="progressPercentText">0%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card de Idioma -->
+      <div class="card">
+        <div class="card-title">Preferência de Idioma</div>
+        <div class="form-group">
+          <label for="languageSelect">Idioma padrão:</label>
+          <select id="languageSelect">
+            <option value="pt" selected>Português (Brasil/Portugal)</option>
+            <option value="auto">Detecção Automática</option>
+            <option value="en">Inglês</option>
+            <option value="es">Espanhol</option>
+          </select>
+        </div>
+      </div>
     </div>
 
-    <div class="card">
-      <div class="card-title">Como Testar Agora</div>
-      <ol class="steps-list">
-        <li>Clique no botão acima para validar o <strong>Background Worker</strong>.</li>
-        <li>Abra o <strong>web.whatsapp.com</strong> em uma nova aba.</li>
-        <li>Observe o aviso <em>"Extensão Conectada"</em> que surgirá no canto inferior direito.</li>
-      </ol>
+    <div class="footer">
+      Os pesos do modelo são salvos no cache do seu navegador e funcionam 100% offline.
     </div>
 
     <script type="module" src="./main.ts"></script>
   </body>
 </html>
-

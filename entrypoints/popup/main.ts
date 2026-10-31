@@ -1,27 +1,145 @@
 import { browser } from 'wxt/browser';
+import type { WhisperModelId, DownloadProgressPayload } from '../../utils/types';
+import { AVAILABLE_MODELS } from '../../utils/types';
+import { getSettings, saveSettings, isModelReady } from '../../utils/storage';
 
-const testBtn = document.getElementById('testBtn') as HTMLButtonElement;
-const statusBox = document.getElementById('statusBox') as HTMLDivElement;
+const modelSelect = document.getElementById('modelSelect') as HTMLSelectElement;
+const languageSelect = document.getElementById('languageSelect') as HTMLSelectElement;
+const modelDescription = document.getElementById('modelDescription') as HTMLDivElement;
+const modelStatusPill = document.getElementById('modelStatusPill') as HTMLSpanElement;
+const downloadBtn = document.getElementById('downloadBtn') as HTMLButtonElement;
+const deleteBtn = document.getElementById('deleteBtn') as HTMLButtonElement;
+const progressContainer = document.getElementById('progressContainer') as HTMLDivElement;
+const progressBarFill = document.getElementById('progressBarFill') as HTMLDivElement;
+const progressFileText = document.getElementById('progressFileText') as HTMLSpanElement;
+const progressPercentText = document.getElementById('progressPercentText') as HTMLSpanElement;
 
-testBtn.addEventListener('click', async () => {
-  statusBox.textContent = 'Enviando PING para o background...';
+async function updateUI() {
+  const selectedModel = modelSelect.value as WhisperModelId;
+  const isReady = await isModelReady(selectedModel);
 
-  try {
-    console.log('[AudioTranscriber Popup] Enviando mensagem PING via browser.runtime...');
-    const response = await browser.runtime.sendMessage({ type: 'PING' });
-    console.log('[AudioTranscriber Popup] Resposta recebida:', response);
-
-    if (response?.status === 'ok') {
-      statusBox.innerHTML = `✅ <strong>Sucesso!</strong> Resposta: "${response.message}" às ${response.timestamp}`;
-      statusBox.style.color = '#008069';
-      statusBox.style.borderColor = '#008069';
-    } else {
-      statusBox.innerHTML = `⚠️ <strong>Resposta inesperada:</strong> <code>${JSON.stringify(response)}</code>`;
-      statusBox.style.color = '#d97706';
-    }
-  } catch (error: any) {
-    console.error('[AudioTranscriber Popup] Erro ao comunicar:', error);
-    statusBox.textContent = `❌ Erro: ${error?.message || 'Falha ao comunicar com background'}`;
-    statusBox.style.color = '#dc2626';
+  const modelInfo = AVAILABLE_MODELS.find((m) => m.id === selectedModel);
+  if (modelInfo) {
+    modelDescription.textContent = `${modelInfo.description} (Tamanho: ${modelInfo.sizeLabel})`;
   }
-});
+
+  if (isReady) {
+    modelStatusPill.textContent = 'Pronto (Offline)';
+    modelStatusPill.className = 'status-pill status-ready';
+    downloadBtn.style.display = 'none';
+    deleteBtn.style.display = 'inline-flex';
+    progressContainer.style.display = 'none';
+  } else {
+    modelStatusPill.textContent = 'Não baixado';
+    modelStatusPill.className = 'status-pill status-missing';
+    downloadBtn.style.display = 'inline-flex';
+    downloadBtn.disabled = false;
+    downloadBtn.innerHTML = '<span>📥 Baixar Modelo Agora</span>';
+    deleteBtn.style.display = 'none';
+  }
+}
+
+async function init() {
+  const settings = await getSettings();
+
+  if (settings.selectedModel) {
+    modelSelect.value = settings.selectedModel;
+  }
+  if (settings.language) {
+    languageSelect.value = settings.language;
+  }
+
+  await updateUI();
+
+  // Troca de modelo
+  modelSelect.addEventListener('change', async () => {
+    const newModel = modelSelect.value as WhisperModelId;
+    await saveSettings({ selectedModel: newModel });
+    await updateUI();
+  });
+
+  // Troca de idioma
+  languageSelect.addEventListener('change', async () => {
+    await saveSettings({ language: languageSelect.value });
+  });
+
+  // Iniciar download
+  downloadBtn.addEventListener('click', async () => {
+    const selectedModel = modelSelect.value as WhisperModelId;
+
+    downloadBtn.disabled = true;
+    downloadBtn.innerHTML = '<span>⏳ Conectando aos servidores HuggingFace...</span>';
+    modelStatusPill.textContent = 'Baixando...';
+    modelStatusPill.className = 'status-pill status-downloading';
+
+    progressContainer.style.display = 'block';
+    progressBarFill.style.width = '0%';
+    progressPercentText.textContent = '0%';
+    progressFileText.textContent = 'Iniciando download dos pesos do modelo...';
+
+    try {
+      await browser.runtime.sendMessage({
+        type: 'START_DOWNLOAD',
+        modelId: selectedModel,
+      });
+    } catch (err: any) {
+      console.warn('[AudioTranscriber Popup] Aviso ao iniciar download:', err);
+    }
+  });
+
+  // Excluir modelo
+  deleteBtn.addEventListener('click', async () => {
+    const selectedModel = modelSelect.value as WhisperModelId;
+    const confirmDelete = confirm('Deseja realmente remover os arquivos deste modelo do cache?');
+    if (confirmDelete) {
+      deleteBtn.disabled = true;
+      deleteBtn.innerHTML = '<span>Excluindo...</span>';
+      try {
+        await browser.runtime.sendMessage({
+          type: 'DELETE_MODEL',
+          modelId: selectedModel,
+        });
+      } catch (err) {
+        console.warn('Erro ao enviar mensagem de exclusão:', err);
+      }
+      setTimeout(async () => {
+        deleteBtn.disabled = false;
+        await updateUI();
+      }, 600);
+    }
+  });
+
+  // Ouvinte de progresso e finalização
+  browser.runtime.onMessage.addListener((message: any) => {
+    if (message.type === 'DOWNLOAD_PROGRESS') {
+      const payload: DownloadProgressPayload = message.payload;
+      if (payload.modelId === modelSelect.value) {
+        if (payload.status === 'error') {
+          progressFileText.textContent = `Erro: ${payload.error || 'Falha no download'}`;
+          downloadBtn.disabled = false;
+          downloadBtn.innerHTML = '<span>Tentar novamente</span>';
+          modelStatusPill.textContent = 'Erro';
+          modelStatusPill.className = 'status-pill status-missing';
+          return;
+        }
+
+        const pct = Math.min(100, Math.max(0, payload.progress ?? 0));
+        progressBarFill.style.width = `${pct}%`;
+        progressPercentText.textContent = `${pct}%`;
+
+        if (payload.file) {
+          const shortName = payload.file.split('/').pop() || payload.file;
+          progressFileText.textContent = `Baixando ${shortName}...`;
+        }
+      }
+    }
+
+    if (message.type === 'DOWNLOAD_COMPLETE') {
+      if (message.modelId === modelSelect.value) {
+        updateUI();
+      }
+    }
+  });
+}
+
+init();

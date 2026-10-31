@@ -6,11 +6,28 @@ export default defineConfig({
     firefoxDataCollection: true,
   },
   manifest: {
-    name: 'Transcritor de Áudio para WhatsApp',
-    description: 'Extensão para transcrição local de áudios no WhatsApp Web.',
+    name: 'Transcritor de Áudio para WhatsApp (IA Local)',
+    description: 'Transcreva áudios do WhatsApp Web diretamente no seu navegador usando IA local e privada.',
     version: '1.0.0',
-    permissions: ['storage'],
-    host_permissions: ['https://web.whatsapp.com/*'],
+    permissions: [
+      'storage',
+      'unlimitedStorage',
+      'offscreen',
+    ],
+    host_permissions: [
+      'https://web.whatsapp.com/*',
+      'https://huggingface.co/*',
+      'https://*.hf.co/*',
+    ],
+    web_accessible_resources: [
+      {
+        resources: ['wasm/*', 'offscreen.html'],
+        matches: ['https://web.whatsapp.com/*'],
+      },
+    ],
+    content_security_policy: {
+      extension_pages: "script-src 'self' 'wasm-unsafe-eval'; object-src 'self';",
+    },
     browser_specific_settings: {
       gecko: {
         id: 'whatsapp-audio-transcriber@local',
@@ -18,5 +35,12 @@ export default defineConfig({
       },
     },
   },
+  vite: () => ({
+    build: {
+      target: 'esnext',
+    },
+    optimizeDeps: {
+      exclude: ['@huggingface/transformers'],
+    },
+  }),
 });
-
