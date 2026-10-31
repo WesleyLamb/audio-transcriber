@@ -44,4 +44,3 @@ export interface DownloadProgressPayload {
   status: 'initiate' | 'download' | 'progress' | 'done' | 'ready' | 'error';
   error?: string;
 }
-

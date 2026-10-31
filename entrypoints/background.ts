@@ -1,6 +1,6 @@
 import { browser } from 'wxt/browser';
 import { DEFAULT_SETTINGS } from '../utils/types';
-import { getSettings, saveSettings } from '../utils/storage';
+import { getSettings, saveSettings, setModelDownloaded } from '../utils/storage';
 
 async function ensureEngine() {
   // 1. Caso Chromium com chrome.offscreen (Manifest V3)
@@ -66,6 +66,55 @@ export default defineBackground(() => {
       };
       sendResponse(response);
       return Promise.resolve(response);
+    }
+
+    // Proxies de acesso ao chrome.storage para contextos restritos (ex: Chrome Offscreen Document)
+    if (message?.type === 'STORAGE_GET') {
+      const storage = browser.storage?.local || (typeof chrome !== 'undefined' ? chrome.storage?.local : null);
+      if (storage) {
+        storage.get(message.key).then((data: any) => {
+          sendResponse({ success: true, data: data[message.key] });
+        }).catch((err: any) => {
+          sendResponse({ success: false, error: err?.message });
+        });
+      } else {
+        sendResponse({ success: false, error: 'Storage API indisponível' });
+      }
+      return true;
+    }
+
+    if (message?.type === 'STORAGE_SET') {
+      const storage = browser.storage?.local || (typeof chrome !== 'undefined' ? chrome.storage?.local : null);
+      if (storage) {
+        storage.set({ [message.key]: message.value }).then(() => {
+          sendResponse({ success: true });
+        }).catch((err: any) => {
+          sendResponse({ success: false, error: err?.message });
+        });
+      } else {
+        sendResponse({ success: false, error: 'Storage API indisponível' });
+      }
+      return true;
+    }
+
+    if (message?.type === 'STORAGE_REMOVE') {
+      const storage = browser.storage?.local || (typeof chrome !== 'undefined' ? chrome.storage?.local : null);
+      if (storage) {
+        storage.remove(message.key).then(() => {
+          sendResponse({ success: true });
+        }).catch((err: any) => {
+          sendResponse({ success: false, error: err?.message });
+        });
+      } else {
+        sendResponse({ success: false, error: 'Storage API indisponível' });
+      }
+      return true;
+    }
+
+    if (message?.type === 'DOWNLOAD_COMPLETE') {
+      if (message.modelId) {
+        setModelDownloaded(message.modelId, true).catch(() => {});
+      }
     }
 
     if (

@@ -113,6 +113,7 @@ async function init() {
       } catch (err) {
         console.warn('Erro ao enviar mensagem de exclusão:', err);
       }
+      await setModelDownloaded(selectedModel, false);
       setTimeout(async () => {
         deleteBtn.disabled = false;
         await updateUI();
@@ -156,8 +157,15 @@ async function init() {
 
     if (message.type === 'DOWNLOAD_COMPLETE') {
       if (message.modelId === modelSelect.value) {
-        updateUI();
+        setModelDownloaded(message.modelId, true).then(() => updateUI());
       }
+    }
+  });
+
+  // Ouvinte de alterações no armazenamento local (atualiza contador de transcrições em tempo real)
+  browser.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && (changes['wa_transcriptions_cache'] || changes['wa_downloaded_models'] || changes['wa_settings'])) {
+      updateUI();
     }
   });
 }

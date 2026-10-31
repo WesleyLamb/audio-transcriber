@@ -97,6 +97,55 @@ async function getAudioBlobUrlForContainer(container: HTMLElement): Promise<stri
   });
 }
 
+// Obtém um identificador estável para a mensagem de áudio
+function getMessageId(container: HTMLElement): string {
+  const dataIdEl = container.closest('[data-id]') || container.querySelector('[data-id]');
+  const dataId = dataIdEl?.getAttribute('data-id');
+  if (dataId) return dataId;
+
+  const convMsgEl =
+    container.closest('[data-testid^="conv-msg-"]') ||
+    container.querySelector('[data-testid^="conv-msg-"]');
+  const convMsgId = convMsgEl?.getAttribute('data-testid');
+  if (convMsgId) return convMsgId.replace('conv-msg-', '');
+
+  const row = container.closest('[role="row"]');
+  if (row?.id) return row.id;
+
+  const meta = container.querySelector('[data-testid="msg-meta"]')?.textContent;
+  if (meta) {
+    return `audio_meta_${meta.trim().replace(/\s+/g, '_')}`;
+  }
+
+  return `audio_${Math.random().toString(36).substring(2, 9)}`;
+}
+
+// Remove caixas de transcrição anteriores para evitar duplicatas ao retranscrever
+function removeExistingTranscriptionBoxes(container: HTMLElement, messageId?: string) {
+  if (messageId) {
+    document.querySelectorAll(`[data-transcription-id="${messageId}"]`).forEach((el) => el.remove());
+  }
+
+  container.querySelectorAll('.wa-transcription-box').forEach((el) => el.remove());
+
+  const parent = container.parentElement;
+  if (parent) {
+    parent.querySelectorAll('.wa-transcription-box').forEach((el) => el.remove());
+    const addon = parent.querySelector('[data-testid="addon-bubble-container"]');
+    if (addon) {
+      addon.querySelectorAll('.wa-transcription-box').forEach((el) => el.remove());
+    }
+  }
+
+  const wrapper =
+    container.closest('[data-id]') ||
+    container.closest('[data-testid^="conv-msg-"]') ||
+    container.closest('[role="row"]');
+  if (wrapper && wrapper !== parent && wrapper !== container) {
+    wrapper.querySelectorAll('.wa-transcription-box').forEach((el) => el.remove());
+  }
+}
+
 // Renderiza a caixa de texto transcrito dentro do balão de mensagem
 function renderTranscriptionBox(
   container: HTMLElement,
@@ -105,10 +154,7 @@ function renderTranscriptionBox(
   modelName: string
 ) {
   // Remove caixa anterior se houver
-  const existing = container.querySelector('.wa-transcription-box');
-  if (existing) {
-    existing.remove();
-  }
+  removeExistingTranscriptionBoxes(container, messageId);
 
   const box = document.createElement('div');
   box.className = 'wa-transcription-box';
@@ -119,28 +165,28 @@ function renderTranscriptionBox(
 
   const tag = document.createElement('span');
   tag.className = 'wa-transcription-tag';
-  tag.innerHTML = `<span>🎙️</span> <span>IA Local (${modelName.replace('onnx-community/', '')})</span>`;
+  tag.innerHTML = `<span>🎙️</span> <span>Transcrição</span>`;
 
   const actions = document.createElement('div');
   actions.className = 'wa-transcription-actions';
 
-  const copyBtn = document.createElement('button');
-  copyBtn.className = 'wa-action-btn';
-  copyBtn.type = 'button';
-  copyBtn.innerHTML = '📋 Copiar';
-  copyBtn.title = 'Copiar texto para a área de transferência';
-  copyBtn.onclick = async (e) => {
-    e.stopPropagation();
-    try {
-      await navigator.clipboard.writeText(text);
-      copyBtn.innerHTML = '✓ Copiado!';
-      setTimeout(() => {
-        copyBtn.innerHTML = '📋 Copiar';
-      }, 2000);
-    } catch {
-      copyBtn.innerHTML = 'Falha ao copiar';
-    }
-  };
+//   const copyBtn = document.createElement('button');
+//   copyBtn.className = 'wa-action-btn';
+//   copyBtn.type = 'button';
+//   copyBtn.innerHTML = '📋 Copiar';
+//   copyBtn.title = 'Copiar texto para a área de transferência';
+//   copyBtn.onclick = async (e) => {
+//     e.stopPropagation();
+//     try {
+//       await navigator.clipboard.writeText(text);
+//       copyBtn.innerHTML = '✓ Copiado!';
+//       setTimeout(() => {
+//         copyBtn.innerHTML = '📋 Copiar';
+//       }, 2000);
+//     } catch {
+//       copyBtn.innerHTML = 'Falha ao copiar';
+//     }
+//   };
 
   const closeBtn = document.createElement('button');
   closeBtn.className = 'wa-action-btn';
@@ -152,7 +198,7 @@ function renderTranscriptionBox(
     box.remove();
   };
 
-  actions.appendChild(copyBtn);
+//   actions.appendChild(copyBtn);
   actions.appendChild(closeBtn);
   header.appendChild(tag);
   header.appendChild(actions);
@@ -183,10 +229,7 @@ function injectButtonIntoMessage(container: HTMLElement) {
     return;
   }
 
-  const messageId =
-    container.closest('[data-id]')?.getAttribute('data-id') ||
-    container.getAttribute('data-id') ||
-    `audio_${Math.random().toString(36).substring(2, 9)}`;
+  const messageId = getMessageId(container);
 
   const wrapper = document.createElement('div');
   wrapper.className = 'wa-transcriber-wrapper';
@@ -207,7 +250,7 @@ function injectButtonIntoMessage(container: HTMLElement) {
     container.appendChild(wrapper);
   }
 
-  // Verifica se esta mensagem já foi transcrita anteriormente no IndexedDB
+  // Verifica se esta mensagem já foi transcrita anteriormente
   getTranscription(messageId)
     .then((cached) => {
       if (cached) {
@@ -221,6 +264,9 @@ function injectButtonIntoMessage(container: HTMLElement) {
   button.onclick = async (e) => {
     e.stopPropagation();
     e.preventDefault();
+
+    // Remove qualquer caixa anterior imediatamente ao retranscrever
+    removeExistingTranscriptionBoxes(container, messageId);
 
     const settings = await getSettings();
     const ready = await isModelReady(settings.selectedModel);
@@ -243,13 +289,14 @@ function injectButtonIntoMessage(container: HTMLElement) {
       const { audioData, duration } = await decodeAudioBlob(blobUrl);
 
       // 3. Envia para o motor de IA Whisper local
-      button.innerHTML = '<span class="wa-spinner"></span><span>Transcrevendo com IA local...</span>';
+      button.innerHTML = '<span class="wa-spinner"></span><span>Transcrevendo ...</span>';
       console.log(`[AudioTranscriber] Enviando ${audioData.length} amostras para inferência Whisper...`);
 
       const response = await browser.runtime.sendMessage({
         type: 'TRANSCRIBE_AUDIO_DATA',
         audioData: Array.from(audioData),
         language: settings.language,
+        modelId: settings.selectedModel,
       });
 
       if (response?.success && typeof response.text === 'string') {
@@ -326,6 +373,19 @@ export default defineContentScript({
 
     injectPageHook();
     scanForAudioMessages();
+
+    // Sincroniza limpeza de histórico em tempo real se o usuário limpar no popup
+    browser.storage.onChanged.addListener((changes, area) => {
+      if (area === 'local' && changes['wa_transcriptions_cache']) {
+        const newValue = changes['wa_transcriptions_cache'].newValue;
+        if (!newValue || Object.keys(newValue).length === 0) {
+          document.querySelectorAll('.wa-transcription-box').forEach((el) => el.remove());
+          document.querySelectorAll('.wa-transcriber-btn').forEach((btn) => {
+            btn.innerHTML = `${MIC_ICON_SVG}<span>Transcrever</span>`;
+          });
+        }
+      }
+    });
 
     let timer: any = null;
     const observer = new MutationObserver(() => {

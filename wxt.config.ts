@@ -9,6 +9,11 @@ export default defineConfig({
     name: 'Transcritor de Áudio para WhatsApp (IA Local)',
     description: 'Transcreva áudios do WhatsApp Web diretamente no seu navegador usando IA local e privada.',
     version: '1.0.0',
+    icons: {
+      16: 'icon-16.png',
+      48: 'icon-48.png',
+      128: 'icon-128.png',
+    },
     permissions: [
       'storage',
       'unlimitedStorage',

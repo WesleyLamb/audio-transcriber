@@ -115,7 +115,11 @@ async function handleDownloadModel(modelId: WhisperModelId) {
 
     activeTranscriber = p;
     currentModelId = modelId;
-    await setModelDownloaded(modelId, true);
+    try {
+      await setModelDownloaded(modelId, true);
+    } catch (e) {
+      console.warn('[AudioTranscriber Engine] Aviso ao registrar modelo baixado:', e);
+    }
 
     console.log(`[AudioTranscriber Engine] Download e inicialização concluídos: ${modelId}`);
 
@@ -163,7 +167,11 @@ async function handleDeleteModel(modelId: WhisperModelId) {
       currentModelId = null;
     }
 
-    await setModelDownloaded(modelId, false);
+    try {
+      await setModelDownloaded(modelId, false);
+    } catch (e) {
+      console.warn('[AudioTranscriber Engine] Aviso ao desmarcar modelo:', e);
+    }
     console.log(`[AudioTranscriber Engine] Modelo ${modelId} removido do cache.`);
     return { success: true };
   } catch (error: any) {
@@ -172,14 +180,28 @@ async function handleDeleteModel(modelId: WhisperModelId) {
   }
 }
 
-async function handleTranscribe(audioData: number[] | Float32Array, language?: string) {
-  const settings = await getSettings();
-  const modelId = settings.selectedModel;
-  const lang = language || settings.language || 'pt';
+async function handleTranscribe(
+  audioData: number[] | Float32Array,
+  language?: string,
+  modelIdParam?: WhisperModelId
+) {
+  let modelId = modelIdParam;
+  let lang = language;
+
+  if (!modelId) {
+    try {
+      const settings = await getSettings();
+      modelId = settings.selectedModel;
+      lang = lang || settings.language || 'pt';
+    } catch {
+      modelId = 'onnx-community/whisper-tiny';
+      lang = lang || 'pt';
+    }
+  }
 
   const ready = await isModelReady(modelId);
   if (!ready) {
-    throw new Error(`O modelo ${modelId} não está baixado. Abra as opções da extensão para baixar.`);
+    console.warn(`[AudioTranscriber Engine] Modelo ${modelId} não marcado como baixado, inicializando sob demanda...`);
   }
 
   const transcriber = await getOrLoadPipeline(modelId);
@@ -194,11 +216,11 @@ async function handleTranscribe(audioData: number[] | Float32Array, language?: s
     return_timestamps: false,
   };
 
-  if (lang !== 'auto') {
+  if (lang && lang !== 'auto') {
     options.language = lang;
   }
 
-  console.log(`[AudioTranscriber Engine] Executando inferência Whisper (idioma: ${lang}, amostras: ${float32Audio.length})...`);
+  console.log(`[AudioTranscriber Engine] Executando inferência Whisper (modelo: ${modelId}, idioma: ${lang}, amostras: ${float32Audio.length})...`);
   const result = await transcriber(float32Audio, options);
 
   const text = (Array.isArray(result) ? result[0]?.text : result?.text) || '';
@@ -235,7 +257,7 @@ browser.runtime.onMessage.addListener((message: any, _sender, sendResponse) => {
   }
 
   if (message.type === 'TRANSCRIBE_AUDIO_DATA') {
-    return handleTranscribe(message.audioData, message.language)
+    return handleTranscribe(message.audioData, message.language, message.modelId)
       .then((text) => {
         const res = { success: true, text };
         sendResponse(res);
