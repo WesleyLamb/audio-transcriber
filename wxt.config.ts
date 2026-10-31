@@ -3,45 +3,20 @@ import { defineConfig } from 'wxt';
 // Configuração do WXT (Web Extension Framework)
 export default defineConfig({
   suppressWarnings: {
-    firefoxDataCollection: true
+    firefoxDataCollection: true,
   },
-  modules: [],
   manifest: {
-    name: 'Transcritor de Áudio para WhatsApp (IA Local)',
-    description: 'Transcreva áudios do WhatsApp Web diretamente no seu navegador usando IA local e privada.',
+    name: 'Transcritor de Áudio para WhatsApp',
+    description: 'Extensão para transcrição local de áudios no WhatsApp Web.',
     version: '1.0.0',
-    permissions: [
-      'storage',
-      'unlimitedStorage',
-      'offscreen'
-    ],
-    host_permissions: [
-      'https://web.whatsapp.com/*',
-      'https://huggingface.co/*',
-      'https://*.hf.co/*'
-    ],
-    web_accessible_resources: [
-      {
-        resources: ['wasm/*', 'offscreen.html'],
-        matches: ['https://web.whatsapp.com/*']
-      }
-    ],
-    content_security_policy: {
-      extension_pages: "script-src 'self' 'wasm-unsafe-eval'; object-src 'self';"
-    },
+    permissions: ['storage'],
+    host_permissions: ['https://web.whatsapp.com/*'],
     browser_specific_settings: {
       gecko: {
         id: 'whatsapp-audio-transcriber@local',
-        strict_min_version: '109.0'
-      }
-    }
-  },
-  vite: () => ({
-    build: {
-      target: 'esnext'
+        strict_min_version: '109.0',
+      },
     },
-    optimizeDeps: {
-      exclude: ['@huggingface/transformers']
-    }
-  })
+  },
 });
+

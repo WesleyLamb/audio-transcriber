@@ -1,34 +1,19 @@
 {
   "name": "audio-transcriber",
   "version": "1.0.0",
-  "description": "Extensão para transcrição local de áudios no WhatsApp Web utilizando Transformers.js",
+  "description": "Extensão para transcrição local de áudios no WhatsApp Web",
   "type": "module",
   "scripts": {
     "dev": "wxt",
     "dev:firefox": "wxt -b firefox",
     "build": "wxt build",
     "build:firefox": "wxt build -b firefox",
-    "zip": "wxt zip",
-    "zip:firefox": "wxt zip -b firefox",
-    "compile": "tsc --noEmit",
-    "copy:wasm": "mkdir -p public/wasm && cp node_modules/onnxruntime-web/dist/ort-wasm* public/wasm/"
+    "compile": "tsc --noEmit"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/WesleyLamb/audio-transcriber.git"
-  },
-  "keywords": [
-    "whatsapp",
-    "transcription",
-    "whisper",
-    "browser-extension"
-  ],
   "devDependencies": {
     "@types/chrome": "^0.3.7",
     "typescript": "^7.0.2",
     "wxt": "^0.21.5"
-  },
-  "dependencies": {
-    "@huggingface/transformers": "^4.3.2"
   }
 }
+

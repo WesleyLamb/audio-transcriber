@@ -11,9 +11,8 @@
   },
   "include": [
     "entrypoints/**/*",
-    "utils/**/*",
-    "types/**/*",
     ".wxt/types/**/*",
     "wxt.config.ts"
   ]
 }
+
