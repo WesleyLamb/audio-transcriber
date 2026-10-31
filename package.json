@@ -3,6 +3,8 @@
   "version": "1.0.0",
   "description": "Extensão para transcrição local e privada de áudios no WhatsApp Web utilizando Transformers.js e Whisper",
   "type": "module",
+  "license": "MIT",
+  "author": "Wesley Lamb",
   "scripts": {
     "dev": "wxt",
     "dev:firefox": "wxt -b firefox",

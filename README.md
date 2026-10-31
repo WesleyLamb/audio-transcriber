@@ -103,9 +103,19 @@ audio-transcriber/
 │   └── wasm/                # Binários do ONNX Runtime WebAssembly locais
 ├── utils/
 │   ├── audio.ts             # Decodificação e resampling Web Audio API (PCM 16kHz)
-│   ├── db.ts                # Armazenamento persistente IndexedDB
-│   ├── storage.ts           # Gerenciamento de configurações locais
+│   ├── db.ts                # Armazenamento compartilhado de transcrições
+│   ├── storage.ts           # Gerenciamento de configurações e fallback de storage
 │   └── types.ts             # Tipos TypeScript compartilhados
 └── wxt.config.ts            # Configuração do framework WXT
 ```
+
+---
+
+## 📄 Licença & Agradecimentos
+
+Distribuído sob a licença **MIT**. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
+
+- **[OpenAI Whisper](https://github.com/openai/whisper):** Modelo de reconhecimento automático de fala de ponta a ponta (Licença MIT).
+- **[Transformers.js](https://github.com/huggingface/transformers.js) & [ONNX Community](https://huggingface.co/onnx-community):** Portabilidade do modelo Whisper para execução local em navegadores via WebAssembly e WebGPU (Licença Apache 2.0).
+
 
