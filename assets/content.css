@@ -1,0 +1,156 @@
+/* Estilos do Transcritor para WhatsApp Web */
+
+.wa-transcriber-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background-color: rgba(0, 168, 132, 0.12);
+  color: #008069;
+  border: 1px solid rgba(0, 168, 132, 0.25);
+  border-radius: 14px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  margin-top: 6px;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.wa-transcriber-btn:hover {
+  background-color: rgba(0, 168, 132, 0.22);
+  border-color: rgba(0, 168, 132, 0.4);
+}
+
+.wa-transcriber-btn:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.wa-transcriber-btn svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+}
+
+/* Modo escuro do WhatsApp Web */
+[data-theme='dark'] .wa-transcriber-btn,
+.dark .wa-transcriber-btn {
+  background-color: rgba(0, 168, 132, 0.2);
+  color: #25d366;
+  border-color: rgba(0, 168, 132, 0.35);
+}
+
+[data-theme='dark'] .wa-transcriber-btn:hover,
+.dark .wa-transcriber-btn:hover {
+  background-color: rgba(0, 168, 132, 0.3);
+}
+
+/* Container do texto da transcrição */
+.wa-transcription-box {
+  margin-top: 8px;
+  padding: 10px 12px;
+  background-color: rgba(0, 0, 0, 0.04);
+  border-left: 3px solid #008069;
+  border-radius: 0 6px 6px 0;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: #111b21;
+  animation: waFadeIn 0.25s ease-out;
+}
+
+[data-theme='dark'] .wa-transcription-box,
+.dark .wa-transcription-box {
+  background-color: rgba(255, 255, 255, 0.05);
+  border-left-color: #25d366;
+  color: #e9edef;
+}
+
+.wa-transcription-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  font-size: 11px;
+  color: #667781;
+}
+
+[data-theme='dark'] .wa-transcription-header,
+.dark .wa-transcription-header {
+  color: #8696a0;
+}
+
+.wa-transcription-tag {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 500;
+}
+
+.wa-transcription-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.wa-action-link {
+  background: none;
+  border: none;
+  color: #008069;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 0;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+[data-theme='dark'] .wa-action-link,
+.dark .wa-action-link {
+  color: #25d366;
+}
+
+.wa-action-link:hover {
+  text-decoration: underline;
+}
+
+.wa-transcription-text {
+  word-wrap: break-word;
+  white-space: pre-wrap;
+  user-select: text;
+}
+
+.wa-transcription-error {
+  color: #ea0038;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+@keyframes waFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.wa-spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: waSpin 0.75s linear infinite;
+}
+
+@keyframes waSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
