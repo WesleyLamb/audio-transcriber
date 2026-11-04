@@ -7,31 +7,35 @@ Uma extensão de navegador para **Google Chrome**, **Mozilla Firefox**, **LibreW
 ## 🔒 100% Local & Privado
 - **Zero envio para servidores externos:** A extração, decodificação e a inferência de transcrição acontecem inteiramente na máquina do usuário.
 - **Funcionamento Offline:** Após baixar os pesos do modelo pela primeira vez, a transcrição não necessita de nenhuma conexão com serviços de IA.
-- **Desenvolvido para Computadores Modestos:** Utiliza por padrão o modelo quantizado `Whisper-Tiny` (~75MB) rodando via WebAssembly CPU (ou WebGPU se disponível).
-- **Cache Inteligente:** As mensagens transcritas são salvas no banco de dados local do navegador (`IndexedDB`). Ao rolar a página ou recarregar o WhatsApp, o texto permanece visível instantaneamente.
+- **Alta Precisão & Leveza:** Utiliza por padrão o modelo quantizado `Whisper-Base` (~140MB) para maior fidelidade e precisão das palavras em português, com opção de alternar para o `Whisper-Tiny` (~75MB) em computadores mais modestos.
+- **Cache Inteligente:** As mensagens transcritas são salvas no armazenamento local do navegador. Ao rolar a página ou recarregar o WhatsApp, o texto permanece visível instantaneamente.
 
 ---
 
-## 🚀 Como Carregar e Usar
+## 🚀 Instalação e Configuração (Desenvolvedor)
 
-### 🦊 No Mozilla Firefox / LibreWolf:
-1. Abra uma aba e digite: `about:debugging#/runtime/this-firefox`
-2. Clique no botão **Carregar extensão temporária...** (*Load Temporary Add-on...*).
-3. Selecione o arquivo `manifest.json` dentro da pasta:
-   ```text
-   audio-transcriber/.output/firefox-mv2/manifest.json
+### 📦 Pré-requisitos
+- **Node.js** (versão 18 ou superior)
+- Gerenciador de pacotes **npm**
+
+### ⚙️ Passos de Instalação
+
+1. Clone o repositório ou navegue até a pasta do projeto:
+   ```bash
+   git clone https://github.com/WesleyLamb/audio-transcriber.git
+   cd audio-transcriber
    ```
-4. O ícone da extensão surgirá na barra de ferramentas do seu navegador.
 
----
+2. Instale as dependências do projeto:
+   ```bash
+   npm install
+   # ou abreviado:
+   npm i
+   ```
 
-### 🟢 No Google Chrome / Brave / Edge:
-1. Abra uma aba e digite: `chrome://extensions`
-2. No canto superior direito, ative a chave **Modo do desenvolvedor** (*Developer mode*).
-3. Clique em **Carregar sem compactação** (*Load unpacked*).
-4. Selecione a pasta:
-   ```text
-   audio-transcriber/.output/chrome-mv3
+3. Caso os binários do WebAssembly não estejam na pasta `public/wasm/`, execute o script auxiliar:
+   ```bash
+   npm run copy:wasm
    ```
 
 ---
@@ -39,8 +43,8 @@ Uma extensão de navegador para **Google Chrome**, **Mozilla Firefox**, **LibreW
 ## 🎧 Passo a Passo de Uso
 
 1. **Baixar o Modelo de IA (apenas na 1ª vez):**
-   - Clique no ícone do **Transcritor WhatsApp** na barra do navegador.
-   - Escolha o modelo desejado (o `Whisper Tiny` é o recomendado para máxima leveza).
+   - Clique no ícone do **Transcritor WhatsApp** na barra de ferramentas do navegador.
+   - O modelo **Whisper Base** (~140MB) já vem selecionado por padrão como recomendado para maior precisão e fidelidade na transcrição em português.
    - Clique em **"📥 Baixar Modelo Agora"** e aguarde o download (100%).
    - O status mudará para `Pronto (Offline)`.
 
@@ -51,7 +55,7 @@ Uma extensão de navegador para **Google Chrome**, **Mozilla Firefox**, **LibreW
    - O texto surgirá diretamente dentro do balão com opções de **"📋 Copiar"** e **"✕"**.
 
 3. **Gerenciar Histórico & Idiomas:**
-   - No popup da extensão, acompanhe a quantidade de áudios salvos no histórico.
+   - No popup da extensão, acompanhe a quantidade de áudios salvos no histórico local.
    - Limpe o histórico a qualquer momento com um clique em **"Limpar Histórico Local"**.
    - Alterne o idioma padrão da transcrição entre Português, Detecção Automática, Inglês ou Espanhol.
 

@@ -1,4 +1,8 @@
-export type WhisperModelId = 'onnx-community/whisper-tiny' | 'onnx-community/whisper-base';
+export type WhisperModelId =
+  | 'Xenova/whisper-small'
+  | 'onnx-community/whisper-small'
+  | 'onnx-community/whisper-base'
+  | 'onnx-community/whisper-tiny';
 
 export interface ModelInfo {
   id: WhisperModelId;
@@ -10,17 +14,24 @@ export interface ModelInfo {
 
 export const AVAILABLE_MODELS: ModelInfo[] = [
   {
-    id: 'onnx-community/whisper-tiny',
-    name: 'Whisper Tiny (Quantizado)',
-    sizeLabel: '~75 MB',
-    description: 'Mais rápido e leve. Ideal para computadores modestos.',
+    id: 'Xenova/whisper-small',
+    name: 'Whisper Small (Quantizado)',
+    sizeLabel: '~240 MB',
+    description: 'Maior precisão em português e termos técnicos.',
     recommended: true,
   },
   {
     id: 'onnx-community/whisper-base',
     name: 'Whisper Base (Quantizado)',
     sizeLabel: '~140 MB',
-    description: 'Maior precisão em português e termos técnicos.',
+    description: 'Equilíbrio entre velocidade e boa precisão.',
+    recommended: false,
+  },
+  {
+    id: 'onnx-community/whisper-tiny',
+    name: 'Whisper Tiny (Quantizado)',
+    sizeLabel: '~75 MB',
+    description: 'Mais rápido e leve. Ideal para computadores modestos.',
     recommended: false,
   },
 ];
@@ -31,7 +42,7 @@ export interface AppSettings {
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
-  selectedModel: 'onnx-community/whisper-tiny',
+  selectedModel: 'Xenova/whisper-small',
   language: 'pt',
 };
 

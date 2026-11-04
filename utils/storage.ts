@@ -1,6 +1,6 @@
 import { browser } from 'wxt/browser';
 import type { AppSettings, WhisperModelId } from './types';
-import { DEFAULT_SETTINGS } from './types';
+import { DEFAULT_SETTINGS, AVAILABLE_MODELS } from './types';
 
 const STORAGE_KEYS = {
   SETTINGS: 'wa_settings',
@@ -20,24 +20,45 @@ function getStorageArea(): any {
 
 export async function getSettings(): Promise<AppSettings> {
   const storage = getStorageArea();
+  let saved: Partial<AppSettings> = {};
+
   if (storage) {
     const result = await storage.get(STORAGE_KEYS.SETTINGS);
-    return { ...DEFAULT_SETTINGS, ...((result[STORAGE_KEYS.SETTINGS] as AppSettings) || {}) };
+    saved = (result[STORAGE_KEYS.SETTINGS] as AppSettings) || {};
+  } else {
+    // Fallback via background messaging para contextos sem chrome.storage direto (ex: Chrome Offscreen Document)
+    try {
+      const res = await browser.runtime.sendMessage({
+        type: 'STORAGE_GET',
+        key: STORAGE_KEYS.SETTINGS,
+      });
+      if (res?.success && res.data) {
+        saved = res.data;
+      }
+    } catch (e) {
+      console.warn('[AudioTranscriber Storage] Falha no fallback getSettings:', e);
+    }
   }
 
-  // Fallback via background messaging para contextos sem chrome.storage direto (ex: Chrome Offscreen Document)
-  try {
-    const res = await browser.runtime.sendMessage({
-      type: 'STORAGE_GET',
-      key: STORAGE_KEYS.SETTINGS,
-    });
-    if (res?.success && res.data) {
-      return { ...DEFAULT_SETTINGS, ...res.data };
-    }
-  } catch (e) {
-    console.warn('[AudioTranscriber Storage] Falha no fallback getSettings:', e);
+  // Valida se o modelo salvo é válido na lista atual de modelos disponíveis
+  const isModelValid = AVAILABLE_MODELS.some((m) => m.id === saved.selectedModel);
+  const selectedModel = isModelValid
+    ? (saved.selectedModel as WhisperModelId)
+    : DEFAULT_SETTINGS.selectedModel;
+
+  const finalSettings: AppSettings = {
+    ...DEFAULT_SETTINGS,
+    ...saved,
+    selectedModel,
+  };
+
+  // Se o modelo salvo anteriormente era inválido (ex: alteração na lista de modelos),
+  // atualiza automaticamente no storage com o novo modelo ativo
+  if (saved.selectedModel && !isModelValid) {
+    saveSettings({ selectedModel }).catch(() => {});
   }
-  return DEFAULT_SETTINGS;
+
+  return finalSettings;
 }
 
 export async function saveSettings(settings: Partial<AppSettings>): Promise<AppSettings> {

@@ -5,12 +5,42 @@ import { decodeAudioBlob } from '../utils/audio';
 import { getTranscription, saveTranscription } from '../utils/db';
 import type { TranscriptionRecord } from '../utils/db';
 
-const MIC_ICON_SVG = `
-<svg viewBox="0 0 24 24">
-  <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
-  <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
-</svg>
-`;
+// Constrói o ícone de microfone usando SVG DOM nativo (100% seguro contra avisos de innerHTML)
+function createMicIcon(): SVGSVGElement {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24');
+
+  const path1 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path1.setAttribute('d', 'M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z');
+
+  const path2 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path2.setAttribute('d', 'M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z');
+
+  svg.appendChild(path1);
+  svg.appendChild(path2);
+  return svg;
+}
+
+// Atualiza o estado visual do botão com APIs seguras do DOM
+function setButtonState(
+  button: HTMLButtonElement,
+  options: { icon?: 'mic' | 'spinner' | null; text: string; disabled?: boolean }
+) {
+  button.replaceChildren();
+  if (options.icon === 'mic') {
+    button.appendChild(createMicIcon());
+  } else if (options.icon === 'spinner') {
+    const spinner = document.createElement('span');
+    spinner.className = 'wa-spinner';
+    button.appendChild(spinner);
+  }
+  const span = document.createElement('span');
+  span.textContent = options.text;
+  button.appendChild(span);
+  if (typeof options.disabled === 'boolean') {
+    button.disabled = options.disabled;
+  }
+}
 
 let lastCapturedAudioUrl: string | null = null;
 const capturedUrlsByTime: Array<{ url: string; time: number }> = [];
@@ -120,6 +150,81 @@ function getMessageId(container: HTMLElement): string {
   return `audio_${Math.random().toString(36).substring(2, 9)}`;
 }
 
+// Localiza a linha do reprodutor de áudio (o elemento irmão logo acima da nova posição)
+function findAudioPlayerRow(container: HTMLElement): HTMLElement | null {
+  const trigger = container.querySelector(
+    'button[aria-label*="mensagem de voz"], button[aria-label*="voice message"], button[aria-label*="recado de voz"], button[aria-label*="Play voice message"], [role="slider"][aria-label*="voz"], [role="slider"][aria-label*="voice"], [role="slider"][aria-label*="recado"], span[aria-label*="Mensagem de voz"], span[aria-label*="Voice message"], audio'
+  );
+  if (!trigger) return null;
+
+  let current: HTMLElement | null = trigger as HTMLElement;
+
+  while (current && current !== container && current.parentElement && current.parentElement !== container) {
+    const parentEl: HTMLElement = current.parentElement;
+
+    // Se o elemento pai possui timestamp (msg-meta) ou autor, 'current' é o container irmão da linha do player
+    if (parentEl.querySelector('[data-testid="msg-meta"]') || parentEl.querySelector('[data-testid="author"]')) {
+      return current;
+    }
+
+    // Se o elemento atual engloba o botão de play E (velocidade ou avatar), é a linha completa
+    const hasPlay = current.querySelector('button[aria-label*="voz"], button[aria-label*="voice"], button[aria-label*="recado"]');
+    const hasSpeedOrAvatar = current.querySelector('button[aria-label*="velocidade"], button[aria-label*="speed"], img');
+    if (hasPlay && hasSpeedOrAvatar) {
+      return current;
+    }
+
+    current = parentEl;
+  }
+
+  return current || (trigger.closest('div') as HTMLElement);
+}
+
+// Obtém ou cria a linha de transcrição imediatamente abaixo do reprodutor de áudio
+function getOrCreateTranscriberRow(container: HTMLElement): HTMLElement {
+  const playerRow = findAudioPlayerRow(container);
+
+  if (playerRow) {
+    // Se o próximo irmão imediato já for a linha de transcrição, reutiliza-o
+    const next = playerRow.nextElementSibling as HTMLElement;
+    if (next && next.classList.contains('wa-transcriber-row')) {
+      return next;
+    }
+
+    // Se já existir uma linha de transcrição em outro local dentro do container, reposiciona
+    const existing = container.querySelector('.wa-transcriber-row') as HTMLElement;
+    if (existing) {
+      if (existing !== next) {
+        playerRow.after(existing);
+      }
+      return existing;
+    }
+
+    const row = document.createElement('div');
+    // Clona dinamicamente as classes do elemento logo acima (playerRow)
+    if (playerRow.className) {
+      row.className = playerRow.className;
+    }
+    row.classList.add('wa-transcriber-row');
+    playerRow.after(row);
+    return row;
+  }
+
+  // Fallback seguro caso playerRow não seja localizado
+  const existing = container.querySelector('.wa-transcriber-row') as HTMLElement;
+  if (existing) return existing;
+
+  const fallbackRow = document.createElement('div');
+  fallbackRow.className = 'wa-transcriber-row';
+  const addon = container.parentElement?.querySelector('[data-testid="addon-bubble-container"]') as HTMLElement;
+  if (addon) {
+    addon.appendChild(fallbackRow);
+  } else {
+    container.appendChild(fallbackRow);
+  }
+  return fallbackRow;
+}
+
 // Remove caixas de transcrição anteriores para evitar duplicatas ao retranscrever
 function removeExistingTranscriptionBoxes(container: HTMLElement, messageId?: string) {
   if (messageId) {
@@ -146,7 +251,7 @@ function removeExistingTranscriptionBoxes(container: HTMLElement, messageId?: st
   }
 }
 
-// Renderiza a caixa de texto transcrito dentro do balão de mensagem
+// Renderiza a caixa de texto transcrito dentro da linha de transcrição
 function renderTranscriptionBox(
   container: HTMLElement,
   messageId: string,
@@ -155,6 +260,8 @@ function renderTranscriptionBox(
 ) {
   // Remove caixa anterior se houver
   removeExistingTranscriptionBoxes(container, messageId);
+
+  const row = getOrCreateTranscriberRow(container);
 
   const box = document.createElement('div');
   box.className = 'wa-transcription-box';
@@ -165,40 +272,29 @@ function renderTranscriptionBox(
 
   const tag = document.createElement('span');
   tag.className = 'wa-transcription-tag';
-  tag.innerHTML = `<span>🎙️</span> <span>Transcrição</span>`;
+  const iconSpan = document.createElement('span');
+  iconSpan.textContent = '🎙️';
+  const labelSpan = document.createElement('span');
+  labelSpan.textContent = 'Transcrição';
+  tag.append(iconSpan, labelSpan);
 
   const actions = document.createElement('div');
   actions.className = 'wa-transcription-actions';
 
-//   const copyBtn = document.createElement('button');
-//   copyBtn.className = 'wa-action-btn';
-//   copyBtn.type = 'button';
-//   copyBtn.innerHTML = '📋 Copiar';
-//   copyBtn.title = 'Copiar texto para a área de transferência';
-//   copyBtn.onclick = async (e) => {
-//     e.stopPropagation();
-//     try {
-//       await navigator.clipboard.writeText(text);
-//       copyBtn.innerHTML = '✓ Copiado!';
-//       setTimeout(() => {
-//         copyBtn.innerHTML = '📋 Copiar';
-//       }, 2000);
-//     } catch {
-//       copyBtn.innerHTML = 'Falha ao copiar';
-//     }
-//   };
-
   const closeBtn = document.createElement('button');
   closeBtn.className = 'wa-action-btn';
   closeBtn.type = 'button';
-  closeBtn.innerHTML = '✕';
+  closeBtn.textContent = '✕';
   closeBtn.title = 'Ocultar transcrição';
   closeBtn.onclick = (e) => {
     e.stopPropagation();
     box.remove();
+    const btn = row.querySelector('.wa-transcriber-btn') as HTMLButtonElement;
+    if (btn) {
+      setButtonState(btn, { icon: 'mic', text: 'Transcrever' });
+    }
   };
 
-//   actions.appendChild(copyBtn);
   actions.appendChild(closeBtn);
   header.appendChild(tag);
   header.appendChild(actions);
@@ -210,23 +306,25 @@ function renderTranscriptionBox(
   box.appendChild(header);
   box.appendChild(textElement);
 
-  const parent = container.parentElement;
-  const addonContainer = parent?.querySelector('[data-testid="addon-bubble-container"]') as HTMLElement;
-
-  if (addonContainer) {
-    addonContainer.appendChild(box);
-  } else {
-    container.appendChild(box);
-  }
+  // Anexa abaixo do botão dentro da linha de transcrição
+  row.appendChild(box);
 }
 
 // Injeta o botão de transcrição dentro do balão de áudio
 function injectButtonIntoMessage(container: HTMLElement) {
-  if (
-    container.querySelector('.wa-transcriber-wrapper') ||
-    container.parentElement?.querySelector('.wa-transcriber-wrapper')
-  ) {
+  const row = getOrCreateTranscriberRow(container);
+
+  // Evita duplicatas se já injetado na nova linha
+  if (row.querySelector('.wa-transcriber-wrapper')) {
     return;
+  }
+
+  // Remove wrapper legado no addon-bubble-container se existir
+  const oldAddonWrapper = container.parentElement?.querySelector(
+    '[data-testid="addon-bubble-container"] .wa-transcriber-wrapper'
+  );
+  if (oldAddonWrapper) {
+    oldAddonWrapper.remove();
   }
 
   const messageId = getMessageId(container);
@@ -237,17 +335,16 @@ function injectButtonIntoMessage(container: HTMLElement) {
   const button = document.createElement('button');
   button.className = 'wa-transcriber-btn';
   button.type = 'button';
-  button.innerHTML = `${MIC_ICON_SVG}<span>Transcrever</span>`;
+  setButtonState(button, { icon: 'mic', text: 'Transcrever' });
 
   wrapper.appendChild(button);
 
-  const parent = container.parentElement;
-  const addonContainer = parent?.querySelector('[data-testid="addon-bubble-container"]') as HTMLElement;
-
-  if (addonContainer) {
-    addonContainer.appendChild(wrapper);
+  // Insere o botão no topo da linha (antes da caixa de texto se houver)
+  const firstChild = row.firstElementChild;
+  if (firstChild) {
+    row.insertBefore(wrapper, firstChild);
   } else {
-    container.appendChild(wrapper);
+    row.appendChild(wrapper);
   }
 
   // Verifica se esta mensagem já foi transcrita anteriormente
@@ -255,7 +352,7 @@ function injectButtonIntoMessage(container: HTMLElement) {
     .then((cached) => {
       if (cached) {
         renderTranscriptionBox(container, messageId, cached.text, cached.modelUsed);
-        button.innerHTML = '✓ Transcrito';
+        setButtonState(button, { text: '✓ Transcrito' });
       }
     })
     .catch(() => {});
@@ -273,13 +370,12 @@ function injectButtonIntoMessage(container: HTMLElement) {
 
     if (!ready) {
       alert(
-        '⚠️ Modelo de IA não baixado!\n\nPor favor, abra o popup da extensão no topo do navegador e faça o download do modelo Whisper antes de transcrever.'
+        `⚠️ Modelo "${settings.selectedModel}" não baixado!\n\nPor favor, abra o popup da extensão no topo do navegador e faça o download do modelo antes de transcrever.`
       );
       return;
     }
 
-    button.disabled = true;
-    button.innerHTML = '<span class="wa-spinner"></span><span>Decodificando áudio...</span>';
+    setButtonState(button, { icon: 'spinner', text: 'Decodificando áudio...', disabled: true });
 
     try {
       // 1. Extrai o áudio
@@ -289,7 +385,7 @@ function injectButtonIntoMessage(container: HTMLElement) {
       const { audioData, duration } = await decodeAudioBlob(blobUrl);
 
       // 3. Envia para o motor de IA Whisper local
-      button.innerHTML = '<span class="wa-spinner"></span><span>Transcrevendo ...</span>';
+      setButtonState(button, { icon: 'spinner', text: 'Transcrevendo ...', disabled: true });
       console.log(`[AudioTranscriber] Enviando ${audioData.length} amostras para inferência Whisper...`);
 
       const response = await browser.runtime.sendMessage({
@@ -317,15 +413,13 @@ function injectButtonIntoMessage(container: HTMLElement) {
         };
         await saveTranscription(record);
 
-        button.disabled = false;
-        button.innerHTML = '✓ Transcrito';
+        setButtonState(button, { text: '✓ Transcrito', disabled: false });
       } else {
         throw new Error(response?.error || 'Não foi possível transcrever o áudio.');
       }
     } catch (err: any) {
       console.error('[AudioTranscriber] Erro durante a transcrição:', err);
-      button.disabled = false;
-      button.innerHTML = '<span>⚠️ Tentar novamente</span>';
+      setButtonState(button, { text: '⚠️ Tentar novamente', disabled: false });
       alert(`Falha na transcrição: ${err.message || 'Erro inesperado'}`);
     }
   };
@@ -380,8 +474,8 @@ export default defineContentScript({
         const newValue = changes['wa_transcriptions_cache'].newValue;
         if (!newValue || Object.keys(newValue).length === 0) {
           document.querySelectorAll('.wa-transcription-box').forEach((el) => el.remove());
-          document.querySelectorAll('.wa-transcriber-btn').forEach((btn) => {
-            btn.innerHTML = `${MIC_ICON_SVG}<span>Transcrever</span>`;
+          document.querySelectorAll<HTMLButtonElement>('.wa-transcriber-btn').forEach((btn) => {
+            setButtonState(btn, { icon: 'mic', text: 'Transcrever' });
           });
         }
       }

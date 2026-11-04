@@ -1,11 +1,21 @@
 /* Estilos do Botão e Caixa de Transcrição Injetados no WhatsApp Web */
 
+/* Linha interna de transcrição (irmã imediatamente abaixo do reprodutor de áudio) */
+.wa-transcriber-row {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  margin-top: 4px;
+  margin-bottom: 2px;
+}
+
 .wa-transcriber-wrapper {
   display: inline-flex;
   align-items: center;
-  margin-top: 4px;
+  margin-top: 2px;
   margin-bottom: 4px;
-  margin-left: 2px;
   z-index: 10;
 }
 
@@ -63,23 +73,25 @@
 
 /* Caixa Inline da Transcrição */
 .wa-transcription-box {
-  margin-top: 8px;
+  margin-top: 4px;
   margin-bottom: 4px;
   padding: 8px 12px;
   background-color: rgba(0, 0, 0, 0.04);
   border-left: 3px solid #008069;
-  border-radius: 0 6px 6px 0;
+  border-radius: 6px;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   font-size: 13.5px;
   line-height: 1.45;
   color: #111b21;
   animation: waFadeIn 0.2s ease-out;
   user-select: text;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 [data-theme='dark'] .wa-transcription-box,
 .dark .wa-transcription-box {
-  background-color: rgba(255, 255, 255, 0.05);
+  background-color: rgba(255, 255, 255, 0.06);
   border-left-color: #25d366;
   color: #e9edef;
 }

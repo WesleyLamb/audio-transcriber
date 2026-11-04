@@ -4,28 +4,30 @@ import { getSettings, saveSettings, setModelDownloaded } from '../utils/storage'
 
 async function ensureEngine() {
   // 1. Caso Chromium com chrome.offscreen (Manifest V3)
-  if (typeof chrome !== 'undefined' && typeof chrome.offscreen !== 'undefined') {
-    if ('getContexts' in chrome.runtime) {
-      try {
-        const contexts = await (chrome.runtime as any).getContexts({
-          contextTypes: ['OFFSCREEN_DOCUMENT'],
-          documentUrls: [browser.runtime.getURL('/offscreen.html')],
-        });
-        if (contexts && contexts.length > 0) return;
-      } catch {
-        // Ignora erro
+  if (import.meta.env.BROWSER === 'chrome') {
+    if (typeof chrome !== 'undefined' && typeof (chrome as any).offscreen !== 'undefined') {
+      if ('getContexts' in chrome.runtime) {
+        try {
+          const contexts = await (chrome.runtime as any).getContexts({
+            contextTypes: ['OFFSCREEN_DOCUMENT'],
+            documentUrls: [browser.runtime.getURL('/offscreen.html')],
+          });
+          if (contexts && contexts.length > 0) return;
+        } catch {
+          // Ignora erro
+        }
       }
-    }
-    try {
-      await chrome.offscreen.createDocument({
-        url: browser.runtime.getURL('/offscreen.html'),
-        reasons: ['AUDIO_PLAYBACK', 'WORKERS'],
-        justification: 'Speech recognition ML pipeline',
-      });
-      console.log('[AudioTranscriber] Documento offscreen criado no Chrome.');
-    } catch (e: any) {
-      if (!e?.message?.includes('single offscreen')) {
-        console.warn('[AudioTranscriber] Aviso offscreen:', e);
+      try {
+        await (chrome as any).offscreen.createDocument({
+          url: browser.runtime.getURL('/offscreen.html'),
+          reasons: ['AUDIO_PLAYBACK', 'WORKERS'],
+          justification: 'Speech recognition ML pipeline',
+        });
+        console.log('[AudioTranscriber] Documento offscreen criado no Chrome.');
+      } catch (e: any) {
+        if (!e?.message?.includes('single offscreen')) {
+          console.warn('[AudioTranscriber] Aviso offscreen:', e);
+        }
       }
     }
     return;

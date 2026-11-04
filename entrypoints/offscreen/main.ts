@@ -1,6 +1,7 @@
 import { pipeline, env } from '@huggingface/transformers';
 import { browser } from 'wxt/browser';
 import type { WhisperModelId, DownloadProgressPayload } from '../../utils/types';
+import { DEFAULT_SETTINGS } from '../../utils/types';
 import { setModelDownloaded, getSettings, isModelReady } from '../../utils/storage';
 
 // Configurações do Transformers.js para extensão
@@ -21,18 +22,27 @@ let isDownloading = false;
 
 const fileProgressMap = new Map<string, { loaded: number; total: number; progress: number }>();
 
+// Retorna as opções corretas de quantização conforme o repositório de origem do modelo
+function getModelLoadingOptions(modelId: string): Record<string, any> {
+  if (modelId.startsWith('Xenova/')) {
+    return { quantized: true };
+  }
+  return { dtype: 'q8' };
+}
+
 async function getOrLoadPipeline(modelId: WhisperModelId) {
   if (activeTranscriber && currentModelId === modelId) {
     return activeTranscriber;
   }
 
   console.log(`[AudioTranscriber Engine] Inicializando pipeline: ${modelId}...`);
+  const modelOptions = getModelLoadingOptions(modelId);
 
   let p = null;
   if (navigator.gpu) {
     try {
       p = await pipeline('automatic-speech-recognition', modelId, {
-        dtype: 'q8',
+        ...modelOptions,
         device: 'webgpu',
       });
       console.log('[AudioTranscriber Engine] Pipeline carregado via WebGPU.');
@@ -43,7 +53,7 @@ async function getOrLoadPipeline(modelId: WhisperModelId) {
 
   if (!p) {
     p = await pipeline('automatic-speech-recognition', modelId, {
-      dtype: 'q8',
+      ...modelOptions,
       device: 'wasm',
     });
     console.log('[AudioTranscriber Engine] Pipeline carregado via WASM CPU.');
@@ -92,11 +102,12 @@ async function handleDownloadModel(modelId: WhisperModelId) {
       }
     };
 
+    const modelOptions = getModelLoadingOptions(modelId);
     let p = null;
     if (navigator.gpu) {
       try {
         p = await pipeline('automatic-speech-recognition', modelId, {
-          dtype: 'q8',
+          ...modelOptions,
           device: 'webgpu',
           progress_callback: progressCallback,
         });
@@ -107,7 +118,7 @@ async function handleDownloadModel(modelId: WhisperModelId) {
 
     if (!p) {
       p = await pipeline('automatic-speech-recognition', modelId, {
-        dtype: 'q8',
+        ...modelOptions,
         device: 'wasm',
         progress_callback: progressCallback,
       });
@@ -153,8 +164,9 @@ async function handleDeleteModel(modelId: WhisperModelId) {
         if (name.includes('transformers') || name.includes('whisper')) {
           const cache = await caches.open(name);
           const requests = await cache.keys();
+          const cleanName = (modelId as string).replace('onnx-community/', '').replace('Xenova/', '');
           for (const req of requests) {
-            if (req.url.includes(modelId.replace('onnx-community/', ''))) {
+            if (req.url.includes(cleanName)) {
               await cache.delete(req);
             }
           }
@@ -194,7 +206,7 @@ async function handleTranscribe(
       modelId = settings.selectedModel;
       lang = lang || settings.language || 'pt';
     } catch {
-      modelId = 'onnx-community/whisper-tiny';
+      modelId = DEFAULT_SETTINGS.selectedModel;
       lang = lang || 'pt';
     }
   }

@@ -17,6 +17,20 @@ const progressPercentText = document.getElementById('progressPercentText') as HT
 const transcriptionsCount = document.getElementById('transcriptionsCount') as HTMLElement;
 const clearCacheBtn = document.getElementById('clearCacheBtn') as HTMLButtonElement;
 
+// Popula as opções do seletor dinamicamente a partir dos modelos disponíveis
+function renderModelOptions(selectedModel: WhisperModelId) {
+  modelSelect.replaceChildren();
+  AVAILABLE_MODELS.forEach((m) => {
+    const opt = document.createElement('option');
+    opt.value = m.id;
+    opt.textContent = `${m.name} (${m.sizeLabel}${m.recommended ? ' - Recomendado' : ''})`;
+    if (m.id === selectedModel) {
+      opt.selected = true;
+    }
+    modelSelect.appendChild(opt);
+  });
+}
+
 async function updateUI() {
   const selectedModel = modelSelect.value as WhisperModelId;
   const isReady = await isModelReady(selectedModel);
@@ -37,7 +51,7 @@ async function updateUI() {
     modelStatusPill.className = 'status-pill status-missing';
     downloadBtn.style.display = 'inline-flex';
     downloadBtn.disabled = false;
-    downloadBtn.innerHTML = '<span>📥 Baixar Modelo Agora</span>';
+    downloadBtn.replaceChildren(Object.assign(document.createElement('span'), { textContent: '📥 Baixar Modelo Agora' }));
     deleteBtn.style.display = 'none';
   }
 
@@ -53,9 +67,9 @@ async function updateUI() {
 async function init() {
   const settings = await getSettings();
 
-  if (settings.selectedModel) {
-    modelSelect.value = settings.selectedModel;
-  }
+  renderModelOptions(settings.selectedModel);
+  modelSelect.value = settings.selectedModel;
+
   if (settings.language) {
     languageSelect.value = settings.language;
   }
@@ -77,9 +91,11 @@ async function init() {
   // Iniciar download
   downloadBtn.addEventListener('click', async () => {
     const selectedModel = modelSelect.value as WhisperModelId;
+    if (!selectedModel) return;
+    await saveSettings({ selectedModel });
 
     downloadBtn.disabled = true;
-    downloadBtn.innerHTML = '<span>⏳ Conectando aos servidores HuggingFace...</span>';
+    downloadBtn.replaceChildren(Object.assign(document.createElement('span'), { textContent: '⏳ Conectando aos servidores HuggingFace...' }));
     modelStatusPill.textContent = 'Baixando...';
     modelStatusPill.className = 'status-pill status-downloading';
 
@@ -104,7 +120,7 @@ async function init() {
     const confirmDelete = confirm('Deseja realmente remover os arquivos deste modelo do cache?');
     if (confirmDelete) {
       deleteBtn.disabled = true;
-      deleteBtn.innerHTML = '<span>Excluindo...</span>';
+      deleteBtn.replaceChildren(Object.assign(document.createElement('span'), { textContent: 'Excluindo...' }));
       try {
         await browser.runtime.sendMessage({
           type: 'DELETE_MODEL',
@@ -138,7 +154,7 @@ async function init() {
         if (payload.status === 'error') {
           progressFileText.textContent = `Erro: ${payload.error || 'Falha no download'}`;
           downloadBtn.disabled = false;
-          downloadBtn.innerHTML = '<span>Tentar novamente</span>';
+          downloadBtn.replaceChildren(Object.assign(document.createElement('span'), { textContent: 'Tentar novamente' }));
           modelStatusPill.textContent = 'Erro';
           modelStatusPill.className = 'status-pill status-missing';
           return;
