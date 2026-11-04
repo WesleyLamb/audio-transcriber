@@ -44,7 +44,7 @@ Uma extensão de navegador para **Google Chrome**, **Mozilla Firefox**, **LibreW
 
 1. **Baixar o Modelo de IA (apenas na 1ª vez):**
    - Clique no ícone do **Transcritor WhatsApp** na barra de ferramentas do navegador.
-   - O modelo **Whisper Base** (~140MB) já vem selecionado por padrão como recomendado para maior precisão e fidelidade na transcrição em português.
+   - O modelo **Whisper Small** (~240MB) já vem selecionado por padrão como recomendado para maior precisão e fidelidade na transcrição em português.
    - Clique em **"📥 Baixar Modelo Agora"** e aguarde o download (100%).
    - O status mudará para `Pronto (Offline)`.
 
@@ -121,5 +121,3 @@ Distribuído sob a licença **MIT**. Veja o arquivo [LICENSE](LICENSE) para mais
 
 - **[OpenAI Whisper](https://github.com/openai/whisper):** Modelo de reconhecimento automático de fala de ponta a ponta (Licença MIT).
 - **[Transformers.js](https://github.com/huggingface/transformers.js) & [ONNX Community](https://huggingface.co/onnx-community):** Portabilidade do modelo Whisper para execução local em navegadores via WebAssembly e WebGPU (Licença Apache 2.0).
-
-
